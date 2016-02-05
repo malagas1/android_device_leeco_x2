@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,12 +30,13 @@
 #ifndef __QCAMERA_CHANNEL_H__
 #define __QCAMERA_CHANNEL_H__
 
-#include <hardware/camera.h>
-#include <utils/Vector.h>
+#include "camera.h"
+#include "QCameraMem.h"
+#include "QCameraParameters.h"
 #include "QCameraStream.h"
 
 extern "C" {
-#include <mm_camera_interface.h>
+#include "mm_camera_interface.h"
 }
 
 namespace qcamera {
@@ -72,7 +73,7 @@ public:
     void deleteChannel();
     int32_t setStreamSyncCB (cam_stream_type_t stream_type,
             stream_cb_routine stream_cb);
-
+    bool isActive() { return m_bIsActive; }
 protected:
     uint32_t m_camHandle;
     mm_camera_ops_t *m_camOps;

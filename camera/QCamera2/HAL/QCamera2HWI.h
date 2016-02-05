@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,31 +30,33 @@
 #ifndef __QCAMERA2HARDWAREINTERFACE_H__
 #define __QCAMERA2HARDWAREINTERFACE_H__
 
-#include <hardware/camera.h>
-#include <utils/Log.h>
+// System dependencies
 #include <utils/Mutex.h>
 #include <utils/Condition.h>
-#include <QCameraParametersIntf.h>
 
-#include "QCameraQueue.h"
-#include "QCameraCmdThread.h"
+// Camera dependencies
+#include "camera.h"
+#include "QCameraAllocator.h"
 #include "QCameraChannel.h"
+#include "QCameraCmdThread.h"
+#include "QCameraDisplay.h"
+#include "QCameraMem.h"
+#include "QCameraParameters.h"
+#include "QCameraParametersIntf.h"
+#include "QCameraPerf.h"
+#include "QCameraPostProc.h"
+#include "QCameraQueue.h"
 #include "QCameraStream.h"
 #include "QCameraStateMachine.h"
-#include "QCameraAllocator.h"
-#include "QCameraPostProc.h"
 #include "QCameraThermalAdapter.h"
-#include "QCameraMem.h"
-#include "QCameraPerf.h"
-#include "QCameraDisplay.h"
 
 #ifdef TARGET_TS_MAKEUP
 #include "ts_makeup_engine.h"
 #include "ts_detectface_engine.h"
 #endif
 extern "C" {
-#include <mm_camera_interface.h>
-#include <mm_jpeg_interface.h>
+#include "mm_camera_interface.h"
+#include "mm_jpeg_interface.h"
 }
 
 #include "QCameraTrace.h"
@@ -166,7 +168,9 @@ public:
     static void releaseNotifications(void *data, void *user_data);
     static bool matchSnapshotNotifications(void *data, void *user_data);
     static bool matchPreviewNotifications(void *data, void *user_data);
+    static bool matchTimestampNotifications(void *data, void *user_data);
     virtual int32_t flushPreviewNotifications();
+    virtual int32_t flushVideoNotifications();
 private:
 
     camera_notify_callback         mNotifyCb;
@@ -215,6 +219,7 @@ public:
     static int pre_take_picture(struct camera_device *);
     static int take_picture(struct camera_device *);
     int takeLiveSnapshot_internal();
+    int cancelLiveSnapshot_internal();
     int takeBackendPic_internal(bool *JpegMemOpt, char *raw_format);
     void clearIntPendingEvents();
     void checkIntPicPending(bool JpegMemOpt, char *raw_format);
@@ -252,6 +257,8 @@ public:
             void);
     int32_t setRelatedCamSyncInfo(
             cam_sync_related_sensors_event_info_t* info);
+    bool isFrameSyncEnabled(void);
+    int32_t setFrameSyncEnabled(bool enable);
     int32_t setMpoComposition(bool enable);
     bool getMpoComposition(void);
     bool getRecordingHintValue(void);
@@ -295,6 +302,7 @@ public:
     int32_t getJpegHandleInfo(mm_jpeg_ops_t *ops,
             mm_jpeg_mpo_ops_t *mpo_ops, uint32_t *pJpegClientHandle);
     uint32_t getCameraId() { return mCameraId; };
+    bool bLiveSnapshot;
 private:
     int setPreviewWindow(struct preview_stream_ops *window);
     int setCallBacks(
@@ -384,7 +392,7 @@ private:
     int32_t processAutoFocusEvent(cam_auto_focus_data_t &focus_data);
     int32_t processZoomEvent(cam_crop_data_t &crop_info);
     int32_t processPrepSnapshotDoneEvent(cam_prep_snapshot_state_t prep_snapshot_state);
-    int32_t processASDUpdate(cam_auto_scene_t scene);
+    int32_t processASDUpdate(cam_asd_decision_t asd_decision);
     int32_t processJpegNotify(qcamera_jpeg_evt_payload_t *jpeg_job);
     int32_t processHDRData(cam_asd_hdr_scene_data_t hdr_scene);
     int32_t processRetroAECUnlock();
@@ -442,7 +450,7 @@ private:
     int32_t setHistogram(bool histogram_en);
     int32_t setFaceDetection(bool enabled);
     int32_t prepareHardwareForSnapshot(int32_t afNeeded);
-    bool needProcessPreviewFrame();
+    bool needProcessPreviewFrame(uint32_t frameID);
     bool needSendPreviewCallback();
     bool isNoDisplayMode() {return mParameters.isNoDisplayMode();};
     bool isZSLMode() {return mParameters.isZSLMode();};
@@ -552,6 +560,15 @@ private:
     inline bool getNeedRestart() {return m_bNeedRestart;}
     inline void setNeedRestart(bool needRestart) {m_bNeedRestart = needRestart;}
 
+    /*Start display skip. Skip starts after
+    skipCnt number of frames from current frame*/
+    void setDisplaySkip(bool enabled, uint8_t skipCnt = 0);
+    /*Caller can specify range frameID to skip.
+    if end is 0, all the frames after start will be skipped*/
+    void setDisplayFrameSkip(uint32_t start = 0, uint32_t end = 0);
+    /*Verifies if frameId is valid to skip*/
+    bool isDisplayFrameToSkip(uint32_t frameId);
+
 private:
     camera_device_t   mCameraDevice;
     uint32_t          mCameraId;
@@ -631,6 +648,7 @@ private:
     int mPLastFrameCount;
     nsecs_t mPLastFpsTime;
     double mPFps;
+    uint8_t mInstantAecFrameCount;
 
     //eztune variables for communication with eztune server at backend
     bool m_bIntJpegEvtPending;
@@ -734,7 +752,6 @@ private:
     mm_jpeg_mpo_ops_t     mJpegMpoHandle;
     uint32_t              mJpegClientHandle;
     bool                  mJpegHandleOwner;
-
    //ts add for makeup
 #ifdef TARGET_TS_MAKEUP
     TSRect mFaceRect;
@@ -743,6 +760,7 @@ private:
     bool TsMakeupProcess(mm_camera_buf_def_t *frame,QCameraStream * stream,TSRect& faceRect);
 #endif
     QCameraMemory *mMetadataMem;
+    QCameraVideoMemory *mVideoMem;
 
     static uint32_t sNextJobId;
 
@@ -762,6 +780,14 @@ private:
     bool m_bNeedRestart;
     Mutex mMapLock;
     Condition mMapCond;
+
+    //Used to decide the next frameID to be skipped
+    uint32_t mLastPreviewFrameID;
+    //FrameID to start frame skip.
+    uint32_t mFrameSkipStart;
+    /*FrameID to stop frameskip. If this is not set,
+    all frames are skipped till we set this*/
+    uint32_t mFrameSkipEnd;
 };
 
 }; // namespace qcamera
