@@ -825,6 +825,7 @@ static inline bool isOEMFeat1PropEnabled()
 QCameraParameters::QCameraParameters()
     : CameraParameters(),
       m_reprocScaleParam(),
+      mCommon(),
       m_pCapability(NULL),
       m_pCamOpsTbl(NULL),
       m_pParamHeap(NULL),
@@ -6114,6 +6115,8 @@ int32_t QCameraParameters::init(cam_capability_t *capabilities,
 
     initDefaultParameters();
 
+    mCommon.init(capabilities);
+
     m_bInited = true;
 
     goto TRANS_INIT_DONE;
@@ -9728,9 +9731,20 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
         format = mAppPreviewFormat;
         break;
     case CAM_STREAM_TYPE_ANALYSIS:
-        if (m_pCapability->analysis_recommended_format ==
-                CAM_FORMAT_Y_ONLY) {
-            format = m_pCapability->analysis_recommended_format;
+        cam_analysis_info_t analysisInfo;
+        uint32_t featureMask;
+
+        featureMask = 0;
+        getStreamPpMask(CAM_STREAM_TYPE_ANALYSIS, featureMask);
+        getAnalysisInfo(
+                ((getRecordingHintValue() == true) && fdModeInVideo()),
+                FALSE,
+                featureMask,
+                &analysisInfo);
+
+        if (analysisInfo.hw_analysis_supported &&
+                analysisInfo.analysis_format == CAM_FORMAT_Y_ONLY) {
+            format = analysisInfo.analysis_format;
         } else {
             LOGW("Invalid analysis_recommended_format %d\n",
                      m_pCapability->analysis_recommended_format);
@@ -12438,12 +12452,6 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
     stream_config_info.min_stride     = m_pCapability->min_stride;
     stream_config_info.min_scanline   = m_pCapability->min_scanline;
     stream_config_info.batch_size = getBufBatchCount();
-    LOGH("buf_alignment=%d stride X scan=%dx%d batch size = %d\n",
-            m_pCapability->buf_alignment,
-            m_pCapability->min_stride,
-            m_pCapability->min_scanline,
-            stream_config_info.batch_size);
-
 
     property_get("persist.camera.raw_yuv", value, "0");
     raw_yuv = atoi(value) > 0 ? true : false;

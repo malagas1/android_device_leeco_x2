@@ -284,6 +284,12 @@ public:
     int32_t getPicSizeFromAPK(int &width, int &height);
 
     int32_t checkFeatureConcurrency();
+
+    int32_t getAnalysisInfo(
+        bool fdVideoEnabled,
+        bool hal3,
+        uint32_t featureMask,
+        cam_analysis_info_t *pAnalysisInfo);
 private:
     QCameraParameters *mImpl;
     mutable Mutex mLock;

@@ -1336,4 +1336,15 @@ int32_t QCameraParametersIntf::checkFeatureConcurrency()
     return mImpl->checkFeatureConcurrency();
 }
 
+int32_t QCameraParametersIntf::getAnalysisInfo(
+        bool fdVideoEnabled,
+        bool hal3,
+        uint32_t featureMask,
+        cam_analysis_info_t *pAnalysisInfo)
+{
+    Mutex::Autolock lock(mLock);
+    CHECK_PARAM_INTF(mImpl);
+    return mImpl->getAnalysisInfo(fdVideoEnabled, hal3, featureMask, pAnalysisInfo);
+}
+
 }; // namespace qcamera
