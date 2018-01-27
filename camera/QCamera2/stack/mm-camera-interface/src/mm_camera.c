@@ -2248,6 +2248,7 @@ static module_debug_t cam_loginfo[(int)CAM_LAST_MODULE] = {
  *
  *  Return: logging level
  **/
+__unused
 static cam_global_debug_level_t cam_get_dbg_level(const char *module,
   char *pValue) {
 
