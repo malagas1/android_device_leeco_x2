@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -30,20 +30,24 @@
 #ifndef __QCAMERA3HARDWAREINTERFACE_H__
 #define __QCAMERA3HARDWAREINTERFACE_H__
 
-#include <pthread.h>
-#include <utils/List.h>
-#include <utils/KeyedVector.h>
-#include <hardware/camera3.h>
+// System dependencies
 #include <camera/CameraMetadata.h>
-#include "QCameraTrace.h"
-#include "QCamera3HALHeader.h"
+#include <pthread.h>
+#include <utils/KeyedVector.h>
+#include <utils/List.h>
+
+// Camera dependencies
+#include "hardware/camera3.h"
 #include "QCamera3Channel.h"
 #include "QCamera3CropRegionMapper.h"
+#include "QCamera3HALHeader.h"
+#include "QCamera3Mem.h"
 #include "QCameraPerf.h"
+#include "QCameraCommon.h"
 
 extern "C" {
-#include <mm_camera_interface.h>
-#include <mm_jpeg_interface.h>
+#include "mm_camera_interface.h"
+#include "mm_jpeg_interface.h"
 }
 
 using namespace android;
@@ -88,10 +92,38 @@ typedef struct {
     QCamera3ProcessingChannel *channel;
 } stream_info_t;
 
+typedef struct {
+    // Stream handle
+    camera3_stream_t *stream;
+    // Buffer handle
+    buffer_handle_t *buffer;
+} PendingBufferInfo;
+
+typedef struct {
+    // Frame number corresponding to request
+    uint32_t frame_number;
+    // Time when request queued into system
+    nsecs_t timestamp;
+    List<PendingBufferInfo> mPendingBufferList;
+} PendingBuffersInRequest;
+
+class PendingBuffersMap {
+public:
+    // Number of outstanding buffers at flush
+    uint32_t numPendingBufsAtFlush;
+    // List of pending buffers per request
+    List<PendingBuffersInRequest> mPendingBuffersInRequest;
+    uint32_t get_num_overall_buffers();
+    void removeBuf(buffer_handle_t *buffer);
+};
+
+
 class QCamera3HardwareInterface {
 public:
     /* static variable and functions accessed by camera service */
     static camera3_device_ops_t mCameraOps;
+    //Id of each session in bundle/link
+    static uint32_t sessionId[MM_CAMERA_MAX_NUM_SENSORS];
     static int initialize(const struct camera3_device *,
                 const camera3_callback_ops_t *callback_ops);
     static int configure_streams(const struct camera3_device *,
@@ -132,7 +164,6 @@ public:
                                    uint32_t tag);
     static bool resetIfNeededROI(cam_area_t* roi, const cam_crop_region_t* scalerCropRegion);
     static void convertLandmarks(cam_face_landmarks_info_t face, int32_t* landmarks);
-    static int32_t getScalarFormat(int32_t format);
     static int32_t getSensorSensitivity(int32_t iso_mode);
 
     double computeNoiseModelEntryS(int32_t sensitivity);
@@ -168,7 +199,8 @@ public:
     QCamera3ReprocessChannel *addOfflineReprocChannel(const reprocess_config_t &config,
             QCamera3ProcessingChannel *inputChHandle);
     bool needRotationReprocess();
-    bool needReprocess(uint32_t postprocess_mask);
+    bool needJpegExifRotation();
+    bool needReprocess(cam_feature_mask_t postprocess_mask);
     bool needJpegRotation();
     cam_denoise_process_type_t getWaveletDenoiseProcessPlate();
     cam_denoise_process_type_t getTemporalDenoiseProcessPlate();
@@ -188,6 +220,12 @@ public:
     const char *getEepromVersionInfo();
     const uint32_t *getLdafCalib();
     void get3AVersion(cam_q3a_version_t &swVersion);
+
+    // Get dual camera related info
+    bool isDeviceLinked() {return mIsDeviceLinked;}
+    bool isMainCamera() {return mIsMainCamera;}
+    uint32_t getSensorMountAngle();
+    const cam_related_system_calibration_data_t *getRelatedCalibrationData();
 
     template <typename fwkType, typename halType> struct QCameraMap {
         fwkType fwk_name;
@@ -246,6 +284,7 @@ private:
     int validateStreamDimensions(camera3_stream_configuration_t *streamList);
     int validateStreamRotations(camera3_stream_configuration_t *streamList);
     void deriveMinFrameDuration();
+    void handleBuffersDuringFlushLock(camera3_stream_buffer_t *buffer);
     int32_t handlePendingReprocResults(uint32_t frame_number);
     int64_t getMinFrameDuration(const camera3_capture_request_t *request);
     void handleMetadataWithLock(mm_camera_super_buf_t *metadata_buf,
@@ -295,6 +334,10 @@ private:
     static bool supportBurstCapture(uint32_t cameraId);
     int32_t setBundleInfo();
 
+    static void setPAAFSupport(cam_feature_mask_t& feature_mask,
+            cam_stream_type_t stream_type,
+            cam_color_filter_arrangement_t filter_arrangement);
+
     camera3_device_t   mCameraDevice;
     uint32_t           mCameraId;
     mm_camera_vtbl_t  *mCameraHandle;
@@ -310,6 +353,7 @@ private:
     QCamera3RawDumpChannel *mRawDumpChannel;
     QCamera3RegularChannel *mDummyBatchChannel;
     QCameraPerfLock m_perfLock;
+    QCameraCommon   mCommon;
 
     uint32_t mChannelHandle;
 
@@ -371,23 +415,6 @@ private:
         uint32_t frame_number;
         uint32_t stream_ID;
     } PendingFrameDropInfo;
-
-    // Store the Pending buffers for Flushing
-    typedef struct {
-        // Frame number pertaining to the buffer
-        uint32_t frame_number;
-        camera3_stream_t *stream;
-        // Buffer handle
-        buffer_handle_t *buffer;
-
-    } PendingBufferInfo;
-
-    typedef struct {
-        // Total number of buffer requests pending
-        uint32_t num_buffers;
-        // List of pending buffers
-        List<PendingBufferInfo> mPendingBufferList;
-    } PendingBuffersMap;
 
     typedef struct {
         camera3_notify_msg_t notify_msg;
@@ -492,6 +519,14 @@ private:
     uint32_t mSurfaceStridePadding;
 
     State mState;
+    //Dual camera related params
+    bool mIsDeviceLinked;
+    bool mIsMainCamera;
+    uint8_t mLinkedCameraId;
+    QCamera3HeapMemory *m_pRelCamSyncHeap;
+    cam_sync_related_sensors_event_info_t *m_pRelCamSyncBuf;
+    cam_sync_related_sensors_event_info_t m_relCamSyncInfo;
+
 };
 
 }; // namespace qcamera

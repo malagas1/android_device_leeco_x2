@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -29,10 +29,15 @@
 
 #define LOG_TAG "QCameraChannel"
 
+// System dependencies
 #include <utils/Errors.h>
-#include "QCameraParametersIntf.h"
+
+// Camera dependencies
 #include "QCamera2HWI.h"
-#include "QCameraChannel.h"
+
+extern "C" {
+#include "mm_camera_dbg.h"
+}
 
 using namespace android;
 
@@ -291,6 +296,10 @@ int32_t QCameraChannel::start()
 {
     int32_t rc = NO_ERROR;
 
+    if(m_bIsActive) {
+        LOGW("Attempt to start active channel");
+        return rc;
+    }
     if (mStreams.size() > 1) {
         // there is more than one stream in the channel
         // we need to notify mctl that all streams in this channel need to be bundled
@@ -367,24 +376,22 @@ int32_t QCameraChannel::start()
 int32_t QCameraChannel::stop()
 {
     int32_t rc = NO_ERROR;
-    ssize_t linkedIdx = -1;
+    size_t i = 0;
 
     if (!m_bIsActive) {
         return NO_INIT;
     }
 
-    for (size_t i = 0; i < mStreams.size(); i++) {
+    while(i < mStreams.size()) {
         if (mStreams[i] != NULL) {
-               if (m_handle == mStreams[i]->getChannelHandle()) {
-                   mStreams[i]->stop();
-               } else {
-                   // Remove linked stream from stream list
-                   linkedIdx = (ssize_t)i;
-               }
+            if (m_handle == mStreams[i]->getChannelHandle()) {
+                mStreams[i]->stop();
+                i++;
+            } else {
+                // Remove linked stream from stream list
+                mStreams.removeAt(i);
+            }
         }
-    }
-    if (linkedIdx > 0) {
-        mStreams.removeAt((size_t)linkedIdx);
     }
 
     rc = m_camOps->stop_channel(m_camHandle, m_handle);
@@ -889,7 +896,6 @@ int32_t QCameraVideoChannel::releaseFrame(const void * opaque, bool isMetaData)
  * PARAMETERS :
  *   @cam_handle : camera handle
  *   @cam_ops    : ptr to camera ops table
- *   @pp_mask    : post-proccess feature mask
  *
  * RETURN     : none
  *==========================================================================*/
@@ -1008,7 +1014,7 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(
                     pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
                     pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
                     pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
-                uint32_t feature_mask = featureConfig.feature_mask;
+                cam_feature_mask_t feature_mask = featureConfig.feature_mask;
 
                 // skip thumbnail reprocessing if not needed
                 if (!param.needThumbnailReprocess(&feature_mask)) {
@@ -1374,7 +1380,6 @@ int32_t QCameraReprocessChannel::doReprocessOffline(mm_camera_super_buf_t *frame
         mm_camera_buf_def_t *meta_buf, QCameraParametersIntf &mParameter)
 {
     int32_t rc = 0;
-    OfflineBuffer mappedBuffer;
     QCameraStream *pStream = NULL;
 
     if (mStreams.size() < 1) {

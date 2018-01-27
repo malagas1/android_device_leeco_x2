@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -27,39 +27,18 @@
 *
 */
 
-#ifndef __QCAMERA3CROPREGIONMAPPER_H__
-#define __QCAMERA3CROPREGIONMAPPER_H__
 
-// System dependencies
-#include <utils/Errors.h>
+/* Macros exposed to gralloc to query camera HAL for gralloc format to be
+used for vedor specific camera formats. */
 
-using namespace android;
+#define PREFERRED_IMPLEMENTATION_DEFINED_CAMERA_FORMAT HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS
+#define PREFERRED_YCBCR_420_888_CAMERA_FORMAT HAL_PIXEL_FORMAT_NV21_ZSL
 
-namespace qcamera {
+/* Macros exposed to camera HAL to get the preview and callback stream
+formats. Please ensure that if the macros below are changed then the
+corresponding change should be done in the above macros and vice versa
+to prevent format mismatch between Gralloc and Camera HAL for stream
+buffers */
 
-class QCamera3CropRegionMapper {
-public:
-    QCamera3CropRegionMapper();
-    virtual ~QCamera3CropRegionMapper();
-
-    void update(uint32_t active_array_w, uint32_t active_array_h,
-            uint32_t sensor_w, uint32_t sensor_h);
-    void toActiveArray(int32_t& crop_left, int32_t& crop_top,
-            int32_t& crop_width, int32_t& crop_height);
-    void toSensor(int32_t& crop_left, int32_t& crop_top,
-            int32_t& crop_width, int32_t& crop_height);
-    void toActiveArray(uint32_t& x, uint32_t& y);
-    void toSensor(uint32_t& x, uint32_t& y);
-
-private:
-    /* sensor output size */
-    int32_t mSensorW, mSensorH;
-    int32_t mActiveArrayW, mActiveArrayH;
-
-    void boundToSize(int32_t& left, int32_t& top, int32_t& width,
-            int32_t& height, int32_t bound_w, int32_t bound_h);
-};
-
-}; // namespace qcamera
-
-#endif /* __QCAMERA3CROPREGIONMAPPER_H__ */
+#define PREVIEW_STREAM_FORMAT CAM_FORMAT_YUV_420_NV12_VENUS
+#define CALLBACK_STREAM_FORMAT CAM_FORMAT_YUV_420_NV21

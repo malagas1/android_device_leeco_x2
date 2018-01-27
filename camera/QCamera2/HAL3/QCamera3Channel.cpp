@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -28,21 +28,26 @@
 */
 
 #define LOG_TAG "QCamera3Channel"
-//#define LOG_NDEBUG 0
-#include <fcntl.h>
-#include <stdlib.h>
-#include <cstdlib>
-#include <stdio.h>
-#include <string.h>
-#include <linux/videodev2.h>
-#include <hardware/camera3.h>
-#include <system/camera_metadata.h>
-#include <gralloc_priv.h>
-#include <utils/Log.h>
-#include <utils/Errors.h>
+
+// To remove
 #include <cutils/properties.h>
+
+// System dependencies
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include "hardware/gralloc.h"
+#include <utils/Timers.h>
+#include <sys/stat.h>
+
+// Camera dependencies
 #include "QCamera3Channel.h"
 #include "QCamera3HWI.h"
+#include "QCameraTrace.h"
+#include "QCameraFormat.h"
+extern "C" {
+#include "mm_camera_dbg.h"
+}
 
 using namespace android;
 
@@ -65,7 +70,7 @@ QCamera3Channel::QCamera3Channel(uint32_t cam_handle,
                                mm_camera_ops_t *cam_ops,
                                channel_cb_routine cb_routine,
                                cam_padding_info_t *paddingInfo,
-                               uint32_t postprocess_mask,
+                               cam_feature_mask_t postprocess_mask,
                                void *userData, uint32_t numBuffers)
 {
     m_camHandle = cam_handle;
@@ -153,7 +158,7 @@ int32_t QCamera3Channel::addStream(cam_stream_type_t streamType,
                                   cam_dimension_t streamDim,
                                   cam_rotation_t streamRotation,
                                   uint8_t minStreamBufNum,
-                                  uint32_t postprocessMask,
+                                  cam_feature_mask_t postprocessMask,
                                   cam_is_type_t isType,
                                   uint32_t batchSize)
 {
@@ -634,10 +639,14 @@ cam_format_t QCamera3Channel::getStreamDefaultFormat(cam_stream_type_t type)
             if (pFormat == 1) {
                 streamFormat = CAM_FORMAT_YUV_420_NV12_UBWC;
             } else {
-                streamFormat = CAM_FORMAT_YUV_420_NV12_VENUS;
+                /* Changed to macro to ensure format sent to gralloc for preview
+                is also changed if the preview format is changed at camera HAL */
+                streamFormat = PREVIEW_STREAM_FORMAT;
             }
         } else {
-            streamFormat = CAM_FORMAT_YUV_420_NV12_VENUS;
+            /* Changed to macro to ensure format sent to gralloc for preview
+            is also changed if the preview format is changed at camera HAL */
+            streamFormat = PREVIEW_STREAM_FORMAT;
         }
         break;
     case CAM_STREAM_TYPE_VIDEO:
@@ -664,7 +673,9 @@ cam_format_t QCamera3Channel::getStreamDefaultFormat(cam_stream_type_t type)
         streamFormat = CAM_FORMAT_YUV_420_NV21;
         break;
     case CAM_STREAM_TYPE_CALLBACK:
-        streamFormat = CAM_FORMAT_YUV_420_NV21;
+        /* Changed to macro to ensure format sent to gralloc for callback
+        is also changed if the preview format is changed at camera HAL */
+        streamFormat = CALLBACK_STREAM_FORMAT;
         break;
     case CAM_STREAM_TYPE_RAW:
         streamFormat = CAM_FORMAT_BAYER_MIPI_RAW_10BPP_GBRG;
@@ -705,7 +716,7 @@ QCamera3ProcessingChannel::QCamera3ProcessingChannel(uint32_t cam_handle,
         void *userData,
         camera3_stream_t *stream,
         cam_stream_type_t stream_type,
-        uint32_t postprocess_mask,
+        cam_feature_mask_t postprocess_mask,
         QCamera3Channel *metadataChannel,
         uint32_t numBuffers) :
             QCamera3Channel(cam_handle, channel_handle, cam_ops, cb_routine,
@@ -730,7 +741,7 @@ QCamera3ProcessingChannel::QCamera3ProcessingChannel(uint32_t cam_handle,
     property_get("persist.debug.sf.showfps", prop, "0");
     mDebugFPS = (uint8_t) atoi(prop);
 
-    int32_t rc = m_postprocessor.init(&mMemory, mPostProcMask);
+    int32_t rc = m_postprocessor.init(&mMemory);
     if (rc != 0) {
         LOGE("Init Postprocessor failed");
     }
@@ -980,7 +991,7 @@ int32_t QCamera3ProcessingChannel::request(buffer_handle_t *buffer,
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCamera3ProcessingChannel::initialize(cam_is_type_t isType)
+int32_t QCamera3ProcessingChannel::initialize(__unused cam_is_type_t isType)
 {
     int32_t rc = NO_ERROR;
     rc = mOfflineMetaMemory.allocateAll(sizeof(metadata_buffer_t));
@@ -1391,7 +1402,7 @@ int32_t QCamera3ProcessingChannel::translateStreamTypeAndFormat(camera3_stream_t
  *==========================================================================*/
 int32_t QCamera3ProcessingChannel::setReprocConfig(reprocess_config_t &reproc_cfg,
         camera3_stream_buffer_t *pInputBuffer,
-        metadata_buffer_t *metadata,
+        __unused metadata_buffer_t *metadata,
         cam_format_t streamFormat, cam_dimension_t dim)
 {
     int32_t rc = 0;
@@ -1640,7 +1651,7 @@ QCamera3RegularChannel::QCamera3RegularChannel(uint32_t cam_handle,
         void *userData,
         camera3_stream_t *stream,
         cam_stream_type_t stream_type,
-        uint32_t postprocess_mask,
+        cam_feature_mask_t postprocess_mask,
         QCamera3Channel *metadataChannel,
         uint32_t numBuffers) :
             QCamera3ProcessingChannel(cam_handle, channel_handle, cam_ops,
@@ -1908,7 +1919,7 @@ QCamera3MetadataChannel::QCamera3MetadataChannel(uint32_t cam_handle,
                     mm_camera_ops_t *cam_ops,
                     channel_cb_routine cb_routine,
                     cam_padding_info_t *paddingInfo,
-                    uint32_t postprocess_mask,
+                    cam_feature_mask_t postprocess_mask,
                     void *userData, uint32_t numBuffers) :
                         QCamera3Channel(cam_handle, channel_handle, cam_ops,
                                 cb_routine, paddingInfo, postprocess_mask,
@@ -2016,7 +2027,7 @@ QCamera3RawChannel::QCamera3RawChannel(uint32_t cam_handle,
                     cam_padding_info_t *paddingInfo,
                     void *userData,
                     camera3_stream_t *stream,
-                    uint32_t postprocess_mask,
+                    cam_feature_mask_t postprocess_mask,
                     QCamera3Channel *metadataChannel,
                     bool raw_16, uint32_t numBuffers) :
                         QCamera3RegularChannel(cam_handle, channel_handle, cam_ops,
@@ -2237,7 +2248,7 @@ QCamera3RawDumpChannel::QCamera3RawDumpChannel(uint32_t cam_handle,
                     cam_dimension_t rawDumpSize,
                     cam_padding_info_t *paddingInfo,
                     void *userData,
-                    uint32_t postprocess_mask, uint32_t numBuffers) :
+                    cam_feature_mask_t postprocess_mask, uint32_t numBuffers) :
                         QCamera3Channel(cam_handle, channel_handle, cam_ops, NULL,
                                 paddingInfo, postprocess_mask,
                                 userData, numBuffers),
@@ -2335,7 +2346,7 @@ void QCamera3RawDumpChannel::dumpRawSnapshot(mm_camera_buf_def_t *frame)
  * RETURN          : NA
  *==========================================================================*/
 void QCamera3RawDumpChannel::streamCbRoutine(mm_camera_super_buf_t *super_frame,
-                                                QCamera3Stream *stream)
+                                                __unused QCamera3Stream *stream)
 {
     LOGD("E");
     if (super_frame == NULL || super_frame->num_bufs != 1) {
@@ -2475,7 +2486,7 @@ QCamera3YUVChannel::QCamera3YUVChannel(uint32_t cam_handle,
         void *userData,
         camera3_stream_t *stream,
         cam_stream_type_t stream_type,
-        uint32_t postprocess_mask,
+        cam_feature_mask_t postprocess_mask,
         QCamera3Channel *metadataChannel) :
             QCamera3ProcessingChannel(cam_handle, channel_handle, cam_ops,
                     cb_routine, paddingInfo, userData, stream, stream_type,
@@ -2606,7 +2617,6 @@ int32_t QCamera3YUVChannel::request(buffer_handle_t *buffer,
         metadata_buffer_t* metadata, bool &needMetadata)
 {
     int32_t rc = NO_ERROR;
-    int index;
     Mutex::Autolock lock(mOfflinePpLock);
 
     LOGD("pInputBuffer is %p frame number %d", pInputBuffer, frameNumber);
@@ -3127,7 +3137,7 @@ QCamera3PicChannel::QCamera3PicChannel(uint32_t cam_handle,
                     cam_padding_info_t *paddingInfo,
                     void *userData,
                     camera3_stream_t *stream,
-                    uint32_t postprocess_mask,
+                    cam_feature_mask_t postprocess_mask,
                     bool is4KVideo,
                     bool isInputStreamConfigured,
                     QCamera3Channel *metadataChannel,
@@ -3207,7 +3217,6 @@ int32_t QCamera3PicChannel::initialize(cam_is_type_t isType)
     cam_dimension_t streamDim;
     cam_stream_type_t streamType;
     cam_format_t streamFormat;
-    mm_camera_channel_attr_t attr;
 
     if (NULL == mCamera3Stream) {
         LOGE("Camera stream uninitialized");
@@ -3463,8 +3472,6 @@ void QCamera3PicChannel::streamCbRoutine(mm_camera_super_buf_t *super_frame,
 
 QCamera3StreamMem* QCamera3PicChannel::getStreamBufs(uint32_t len)
 {
-    int rc = 0;
-
     mYuvMemory = new QCamera3StreamMem(mCamera3Stream->max_buffers, false);
     if (!mYuvMemory) {
         LOGE("unable to create metadata memory");
@@ -3606,7 +3613,7 @@ QCamera3ReprocessChannel::QCamera3ReprocessChannel(uint32_t cam_handle,
                                                  mm_camera_ops_t *cam_ops,
                                                  channel_cb_routine cb_routine,
                                                  cam_padding_info_t *paddingInfo,
-                                                 uint32_t postprocess_mask,
+                                                 cam_feature_mask_t postprocess_mask,
                                                  void *userData, void *ch_hdl) :
     /* In case of framework reprocessing, pproc and jpeg operations could be
      * parallelized by allowing 1 extra buffer for reprocessing output:
@@ -3622,7 +3629,8 @@ QCamera3ReprocessChannel::QCamera3ReprocessChannel(uint32_t cam_handle,
     m_pSrcChannel(NULL),
     m_pMetaChannel(NULL),
     mMemory(NULL),
-    mGrallocMemory(0)
+    mGrallocMemory(0),
+    mReprocessPerfMode(false)
 {
     memset(mSrcStreamHandles, 0, sizeof(mSrcStreamHandles));
     mOfflineBuffersIndex = mNumBuffers -1;
@@ -3802,9 +3810,54 @@ void QCamera3ReprocessChannel::streamCbRoutine(mm_camera_super_buf_t *super_fram
             obj->m_postprocessor.releasePPJobData(pp_job);
         }
         free(pp_job);
+        resetToCamPerfNormal(resultFrameNumber);
     }
     free(super_frame);
     return;
+}
+
+/*===========================================================================
+ * FUNCTION   : resetToCamPerfNormal
+ *
+ * DESCRIPTION: Set the perf mode to normal if all the priority frames
+ *              have been reprocessed
+ *
+ * PARAMETERS :
+ *      @frameNumber: Frame number of the reprocess completed frame
+ *
+ * RETURN     : QCamera3StreamMem *
+ *==========================================================================*/
+int32_t QCamera3ReprocessChannel::resetToCamPerfNormal(uint32_t frameNumber)
+{
+    int32_t rc = NO_ERROR;
+    bool resetToPerfNormal = false;
+    {
+        Mutex::Autolock lock(mPriorityFramesLock);
+        /* remove the priority frame number from the list */
+        for (size_t i = 0; i < mPriorityFrames.size(); i++) {
+            if (mPriorityFrames[i] == frameNumber) {
+                mPriorityFrames.removeAt(i);
+            }
+        }
+        /* reset the perf mode if pending priority frame list is empty */
+        if (mReprocessPerfMode && mPriorityFrames.empty()) {
+            resetToPerfNormal = true;
+        }
+    }
+    if (resetToPerfNormal) {
+        QCamera3Stream *pStream = mStreams[0];
+        cam_stream_parm_buffer_t param;
+        memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
+
+        param.type = CAM_STREAM_PARAM_TYPE_REQUEST_OPS_MODE;
+        param.perf_mode = CAM_PERF_NORMAL;
+        rc = pStream->setParameter(param);
+        {
+            Mutex::Autolock lock(mPriorityFramesLock);
+            mReprocessPerfMode = false;
+        }
+    }
+    return rc;
 }
 
 /*===========================================================================
@@ -3818,7 +3871,6 @@ void QCamera3ReprocessChannel::streamCbRoutine(mm_camera_super_buf_t *super_fram
  *==========================================================================*/
 QCamera3StreamMem* QCamera3ReprocessChannel::getStreamBufs(uint32_t len)
 {
-    int rc = 0;
     if (mReprocessType == REPROCESS_TYPE_JPEG) {
         mMemory = new QCamera3StreamMem(mNumBuffers, false);
         if (!mMemory) {
@@ -4200,7 +4252,7 @@ int32_t QCamera3ReprocessChannel::overrideMetadata(qcamera_hal3_pp_buffer_t *pp_
 /*===========================================================================
 * FUNCTION : overrideFwkMetadata
 *
-* DESCRIPTION: Override frameworks metadata such as crop, and CDS data.
+* DESCRIPTION: Override frameworks metadata such as rotation, crop, and CDS data.
 *
 * PARAMETERS :
 * @frame : input frame for reprocessing
@@ -4221,9 +4273,20 @@ int32_t QCamera3ReprocessChannel::overrideFwkMetadata(
         LOGE("No metadata available");
         return BAD_VALUE;
     }
+    metadata_buffer_t *meta = (metadata_buffer_t *) frame->metadata_buffer.buffer;
+
+    // Not doing rotation at all for YUV to YUV reprocess
+    if (mReprocessType != REPROCESS_TYPE_JPEG) {
+        LOGD("Override rotation to 0 for channel reprocess type %d",
+                mReprocessType);
+    cam_rotation_info_t rotation_info;
+    memset(&rotation_info, 0, sizeof(rotation_info));
+    rotation_info.rotation = ROTATE_0;
+    rotation_info.streamId = mStreams[0]->getMyServerID();
+    ADD_SET_PARAM_ENTRY_TO_BATCH(meta, CAM_INTF_PARM_ROTATION, rotation_info);
+    }
 
     // Find and insert crop info for reprocess stream
-    metadata_buffer_t *meta = (metadata_buffer_t *) frame->metadata_buffer.buffer;
     IF_META_AVAILABLE(cam_crop_data_t, crop_data, CAM_INTF_META_CROP_DATA, meta) {
         if (1 == crop_data->num_of_streams) {
             // Store crop/roi information for offline reprocess
@@ -4277,12 +4340,15 @@ int32_t QCamera3ReprocessChannel::overrideFwkMetadata(
  *
  * PARAMETERS :
  *   @frame     : input frame for reprocessing
+ *   @isPriorityFrame: Hint that this frame is of priority, equivalent to
+ *              real time, even though it is processed in offline mechanism
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
- int32_t QCamera3ReprocessChannel::doReprocessOffline(qcamera_fwk_input_pp_data_t *frame)
+ int32_t  QCamera3ReprocessChannel::doReprocessOffline(
+        qcamera_fwk_input_pp_data_t *frame, bool isPriorityFrame)
 {
     int32_t rc = 0;
     int index;
@@ -4416,6 +4482,32 @@ int32_t QCamera3ReprocessChannel::overrideFwkMetadata(
 
     if (rc == NO_ERROR) {
         cam_stream_parm_buffer_t param;
+        uint32_t numPendingPriorityFrames = 0;
+
+        if(isPriorityFrame && (mReprocessType != REPROCESS_TYPE_JPEG)) {
+            Mutex::Autolock lock(mPriorityFramesLock);
+            /* read the length before pushing the frame number to check if
+             * vector is empty */
+            numPendingPriorityFrames = mPriorityFrames.size();
+            mPriorityFrames.push(frame->frameNumber);
+        }
+
+        if(isPriorityFrame && !numPendingPriorityFrames &&
+            (mReprocessType != REPROCESS_TYPE_JPEG)) {
+            memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
+            param.type = CAM_STREAM_PARAM_TYPE_REQUEST_OPS_MODE;
+            param.perf_mode = CAM_PERF_HIGH_PERFORMANCE;
+            rc = pStream->setParameter(param);
+            if (rc != NO_ERROR) {
+                ALOGE("%s: setParameter for CAM_PERF_HIGH_PERFORMANCE failed",
+                    __func__);
+            }
+            {
+                Mutex::Autolock lock(mPriorityFramesLock);
+                mReprocessPerfMode = true;
+            }
+        }
+
         memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
         param.type = CAM_STREAM_PARAM_TYPE_DO_REPROCESS;
         param.reprocess.buf_index = buf_idx;
@@ -4429,6 +4521,7 @@ int32_t QCamera3ReprocessChannel::overrideFwkMetadata(
         rc = pStream->setParameter(param);
         if (rc != NO_ERROR) {
             LOGE("stream setParameter for reprocess failed");
+            resetToCamPerfNormal(frame->frameNumber);
         }
     } else {
         LOGE("Input buffer memory map failed: %d", rc);
@@ -4591,10 +4684,12 @@ QCamera3SupportChannel::QCamera3SupportChannel(uint32_t cam_handle,
                     uint32_t channel_handle,
                     mm_camera_ops_t *cam_ops,
                     cam_padding_info_t *paddingInfo,
-                    uint32_t postprocess_mask,
+                    cam_feature_mask_t postprocess_mask,
                     cam_stream_type_t streamType,
                     cam_dimension_t *dim,
                     cam_format_t streamFormat,
+                    uint8_t hw_analysis_supported,
+                    cam_color_filter_arrangement_t color_arrangement,
                     void *userData, uint32_t numBuffers) :
                         QCamera3Channel(cam_handle, channel_handle, cam_ops,
                                 NULL, paddingInfo, postprocess_mask,
@@ -4604,6 +4699,11 @@ QCamera3SupportChannel::QCamera3SupportChannel(uint32_t cam_handle,
     memcpy(&mDim, dim, sizeof(cam_dimension_t));
     mStreamType = streamType;
     mStreamFormat = streamFormat;
+   // Make Analysis same as Preview format
+   if (!hw_analysis_supported && mStreamType == CAM_STREAM_TYPE_ANALYSIS &&
+           color_arrangement != CAM_FILTER_ARRANGEMENT_Y) {
+        mStreamFormat = getStreamDefaultFormat(CAM_STREAM_TYPE_PREVIEW);
+   }
 }
 
 QCamera3SupportChannel::~QCamera3SupportChannel()

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,29 +27,35 @@
  *
  */
 
-#ifndef __MM_JPEG_DBG_H__
-#define __MM_JPEG_DBG_H__
+#ifndef __QCAMERA_COMMON_H__
+#define __QCAMERA_COMMON_H__
 
-#ifdef QCAMERA_REDEFINE_LOG
-#define CAM_MODULE CAM_JPEG_MODULE
-#include "mm_camera_dbg.h"
-#endif
+// Camera dependencies
+#include "cam_types.h"
+#include "cam_intf.h"
 
-extern volatile uint32_t gKpiDebugLevel;
+namespace qcamera {
 
-#ifndef KPI_DEBUG
-#define KPI_DEBUG
-#define ATRACE_TAG ATRACE_TAG_CAMERA
-#include <cutils/trace.h>
+#define ALIGN(a, b) (((a) + (b)) & ~(b))
+#define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-#define KPI_APT 1
-#define KPI_DBG 2
+class QCameraCommon {
+public:
+    QCameraCommon();
+    ~QCameraCommon();
 
-#define KPI_ATRACE_INT(name,val) ({\
-if (gKpiDebugLevel >= KPI_APT) { \
-     atrace_int(ATRACE_TAG, name, val); \
-}\
-})
+    int32_t init(cam_capability_t *cap);
 
-#endif
-#endif /* __MM_JPEG_DBG_H__ */
+    int32_t getAnalysisInfo(
+        bool fdVideoEnabled, bool hal3, cam_feature_mask_t featureMask,
+        cam_analysis_info_t *pAnalysisInfo);
+    static uint32_t calculateLCM(int32_t num1, int32_t num2);
+
+private:
+    cam_capability_t *m_pCapability;
+
+};
+
+}; // namespace qcamera
+#endif /* __QCAMERA_COMMON_H__ */
+

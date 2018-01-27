@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,16 +30,19 @@
 #ifndef __QCAMERA2HWI_MEM_H__
 #define __QCAMERA2HWI_MEM_H__
 
-#include <hardware/camera.h>
+// System dependencies
+#include <linux/msm_ion.h>
 #include <utils/Mutex.h>
 #include <utils/List.h>
-#include <qdMetaData.h>
-#include <utils/Timers.h>
+
+// Display dependencies
+#include "qdMetaData.h"
+
+// Camera dependencies
+#include "camera.h"
 
 extern "C" {
-#include <sys/types.h>
-#include <linux/msm_ion.h>
-#include <mm_camera_interface.h>
+#include "mm_camera_interface.h"
 }
 
 namespace qcamera {
@@ -48,6 +51,8 @@ class QCameraMemoryPool;
 
 //OFFSET, SIZE, USAGE, TIMESTAMP, FORMAT
 #define VIDEO_METADATA_NUM_INTS          5
+//Buffer identity
+#define VIDEO_METADATA_NUM_COMMON_INTS   1
 
 enum QCameraMemType {
     QCAMERA_MEM_TYPE_DEFAULT      = 0,
@@ -228,10 +233,14 @@ public:
     int getUsage(){return mUsage;};
     int getFormat(){return mFormat;};
     int convCamtoOMXFormat(cam_format_t format);
+    int closeNativeHandle(const void *data, bool metadata);
+    native_handle_t *getNativeHandle(uint32_t index, bool metadata = true);
+    static int closeNativeHandle(const void *data);
 private:
     camera_memory_t *mMetadata[MM_CAMERA_MAX_NUM_FRAMES];
     uint8_t mMetaBufCount;
     int mUsage, mFormat;
+    native_handle_t *mNativeHandle[MM_CAMERA_MAX_NUM_FRAMES];
 };
 
 
@@ -267,6 +276,7 @@ public:
     void setMaxFPS(int maxFPS);
     int32_t enqueueBuffer(uint32_t index, nsecs_t timeStamp = 0);
     int32_t dequeueBuffer();
+    inline bool isBufOwnedByCamera(uint32_t index){return mLocalFlag[index] == BUFFER_OWNED;};
 
 private:
     buffer_handle_t *mBufferHandle[MM_CAMERA_MAX_NUM_FRAMES];

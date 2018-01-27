@@ -29,9 +29,11 @@
 
 #ifndef __MM_CAMERA_INTERFACE_H__
 #define __MM_CAMERA_INTERFACE_H__
-#include <linux/msm_ion.h>
-#include <linux/videodev2.h>
+
+// System dependencies
 #include <media/msmb_camera.h>
+
+// Camera dependencies
 #include "cam_intf.h"
 #include "cam_queue.h"
 
@@ -43,6 +45,8 @@
 #define PAD_TO_SIZE(size, padding) \
         ((size + (typeof(size))(padding - 1)) & \
         (typeof(size))(~(padding - 1)))
+
+#define CEIL_DIVISION(n, d) ((n+d-1)/d)
 
 /** CAM_DUMP_TO_FILE:
  *  @filename: file name
@@ -374,6 +378,8 @@ typedef enum {
 *                     queue
 *    @enable_frame_sync: Enables frame sync for dual camera
 *    @priority : save matched priority frames only
+*    @user_expected_frame_id : Number of frames, camera interface
+*                     will wait for getting the instant capture frame.
 **/
 typedef struct {
     mm_camera_super_buf_notify_mode_t notify_mode;
@@ -383,6 +389,7 @@ typedef struct {
     uint8_t max_unmatched_frames;
     uint8_t enable_frame_sync;
     mm_camera_super_buf_priority_t priority;
+    uint8_t user_expected_frame_id;
 } mm_camera_channel_attr_t;
 
 typedef struct {
