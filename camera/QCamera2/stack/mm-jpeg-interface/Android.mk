@@ -15,12 +15,11 @@ LOCAL_ADDITIONAL_DEPENDENCIES := $(common_deps)
 LOCAL_C_INCLUDES += \
     frameworks/native/include/media/openmax \
     $(LOCAL_PATH)/inc \
-    $(LOCAL_PATH)/../common \
     $(LOCAL_PATH)/../mm-camera-interface/inc \
-    $(LOCAL_PATH)/../../.. \
+    $(LOCAL_PATH)/../common \
+    $(LOCAL_PATH)/../../../ \
     $(LOCAL_PATH)/../../../mm-image-codec/qexif \
     $(LOCAL_PATH)/../../../mm-image-codec/qomx_core
-
 ifeq ($(strip $(TARGET_USES_ION)),true)
     LOCAL_CFLAGS += -DUSE_ION
 endif
@@ -41,14 +40,10 @@ endif
 JPEG_PIPELINE_TARGET_LIST := msm8994
 JPEG_PIPELINE_TARGET_LIST += msm8992
 JPEG_PIPELINE_TARGET_LIST += msm8996
-JPEG_PIPELINE_TARGET_LIST += msmcobalt
 
 ifneq (,$(filter  $(JPEG_PIPELINE_TARGET_LIST),$(TARGET_BOARD_PLATFORM)))
     LOCAL_CFLAGS+= -DMM_JPEG_USE_PIPELINE
 endif
-
-# System header file path prefix
-LOCAL_CFLAGS += -DSYSTEM_HEADER_PREFIX=sys
 
 LOCAL_SRC_FILES := \
     src/mm_jpeg_queue.c \

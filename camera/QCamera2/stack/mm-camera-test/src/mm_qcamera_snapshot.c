@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,9 +27,8 @@
  *
  */
 
-// Camera dependencies
-#include "mm_qcamera_app.h"
 #include "mm_qcamera_dbg.h"
+#include "mm_qcamera_app.h"
 
 /* This callback is received once the complete JPEG encoding is done */
 static void jpeg_encode_cb(jpeg_job_status_t status,
@@ -178,7 +177,6 @@ int createEncodingSession(mm_camera_test_obj_t *test_obj,
  *
  *
  **/
-__unused
 static void mm_app_snapshot_metadata_notify_cb(mm_camera_super_buf_t *bufs,
   void *user_data)
 {

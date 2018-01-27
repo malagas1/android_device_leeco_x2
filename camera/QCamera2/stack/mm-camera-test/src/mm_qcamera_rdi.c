@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -27,12 +27,8 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-// System dependencies
-#include <fcntl.h>
-
-// Camera dependencies
-#include "mm_qcamera_app.h"
 #include "mm_qcamera_dbg.h"
+#include "mm_qcamera_app.h"
 
 static uint32_t rdi_len = 0;
 
@@ -112,8 +108,7 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
         if (((CAM_FORMAT_BAYER_MIPI_RAW_8BPP_GBRG <= cam_cap->supported_raw_fmts[i]) &&
             (CAM_FORMAT_BAYER_MIPI_RAW_12BPP_BGGR >= cam_cap->supported_raw_fmts[i])) ||
             (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_META_RAW_8BIT) ||
-            (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_JPEG_RAW_8BIT) ||
-            (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_BAYER_MIPI_RAW_14BPP_BGGR))
+            (cam_cap->supported_raw_fmts[i] == CAM_FORMAT_JPEG_RAW_8BIT))
         {
             fmt = cam_cap->supported_raw_fmts[i];
             LOGE(" fmt=%d\n",  fmt);
@@ -132,7 +127,7 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
     abc.type[0] = CAM_STREAM_TYPE_RAW;
     abc.buffer_info.min_buffers = num_bufs;
     abc.buffer_info.max_buffers = num_bufs;
-    abc.is_type[0] = IS_TYPE_NONE;
+    abc.is_type = IS_TYPE_NONE;
 
     rc = setmetainfoCommand(test_obj, &abc);
     if (rc != MM_CAMERA_OK) {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, 2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,19 +27,17 @@
  *
  */
 
-// To remove
-#include <cutils/properties.h>
-
-// System dependencies
 #include <pthread.h>
 #include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
+#include <poll.h>
+#include <cutils/properties.h>
 #include <stdlib.h>
-#define IOCTL_H <SYSTEM_HEADER_PREFIX/ioctl.h>
-#include IOCTL_H
 
-// Camera dependencies
-#include "cam_semaphore.h"
+#include <cam_semaphore.h>
 #include "mm_camera_dbg.h"
 #include "mm_camera_sock.h"
 #include "mm_camera_interface.h"
@@ -259,6 +257,7 @@ int32_t mm_camera_open(mm_camera_obj_t *my_obj)
     uint8_t sleep_msec=MM_CAMERA_DEV_OPEN_RETRY_SLEEP;
     int cam_idx = 0;
     const char *dev_name_value = NULL;
+    char prop[PROPERTY_VALUE_MAX];
     int l_errno = 0;
 
     LOGD("begin\n");
@@ -2162,6 +2161,7 @@ int32_t mm_camera_reg_stream_buf_cb(mm_camera_obj_t *my_obj,
         mm_camera_stream_cb_type cb_type, void *userdata)
 {
     int rc = 0;
+    mm_stream_t *stream = NULL;
     mm_stream_data_cb_t buf_cb;
     mm_channel_t * ch_obj =
             mm_camera_util_get_channel_by_handler(my_obj, ch_id);
@@ -2250,7 +2250,6 @@ static module_debug_t cam_loginfo[(int)CAM_LAST_MODULE] = {
  *
  *  Return: logging level
  **/
-__unused
 static cam_global_debug_level_t cam_get_dbg_level(const char *module,
   char *pValue) {
 

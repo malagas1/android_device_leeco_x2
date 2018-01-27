@@ -1,4 +1,4 @@
-/* Copyright (c) 2015-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,26 +27,23 @@
  *
  */
 
-// To remove
-#include <utils/Log.h>
-
-// System dependencies
+#include <pthread.h>
 #include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/prctl.h>
 #include <fcntl.h>
 #include <poll.h>
-#include <pthread.h>
-#include <sys/ioctl.h>
-#include <sys/prctl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 
-// Camera dependencies
+#include "mm_lib2d.h"
+#include <utils/Log.h>
+
 #include "img_common.h"
 #include "img_comp.h"
 #include "img_comp_factory.h"
 #include "img_buffer.h"
 #include "lib2d.h"
-#include "mm_lib2d.h"
 
 /** lib2d_job_private_info
  * @jobid: Job id of this process request

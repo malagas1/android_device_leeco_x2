@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -27,15 +27,6 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-// System dependencies
-#include <assert.h>
-#include <errno.h>
-#include <fcntl.h>
-#define MMAN_H <SYSTEM_HEADER_PREFIX/mman.h>
-#include MMAN_H
-
-// Camera dependencies
-#include "mm_qcamera_app.h"
 #include "mm_qcamera_dbg.h"
 #include "mm_qcamera_app.h"
 #include <assert.h>
@@ -562,8 +553,7 @@ cam_dimension_t mm_app_get_analysis_stream_dim(
                                                const cam_dimension_t* preview_dim)
 {
     cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
-    cam_dimension_t max_analysis_dim =
-        cam_cap->analysis_info[CAM_ANALYSIS_INFO_FD_STILL].analysis_max_res;
+    cam_dimension_t max_analysis_dim = cam_cap->analysis_max_res;
     cam_dimension_t analysis_dim = {0, 0};
 
     if (preview_dim->width > max_analysis_dim.width ||
@@ -638,8 +628,7 @@ mm_camera_stream_t * mm_app_add_analysis_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
     stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
     stream->s_config.stream_info->dim = analysis_dim;
-    stream->s_config.padding_info =
-        cam_cap->analysis_info[CAM_ANALYSIS_INFO_FD_STILL].analysis_padding_info;
+    stream->s_config.padding_info = cam_cap->analysis_padding_info;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
     if (MM_CAMERA_OK != rc) {
@@ -698,7 +687,7 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
 
     abc.buffer_info.min_buffers = 10;
     abc.buffer_info.max_buffers = 10;
-    abc.is_type[0] = IS_TYPE_NONE;
+    abc.is_type = IS_TYPE_NONE;
 
     rc = setmetainfoCommand(test_obj, &abc);
     if (rc != MM_CAMERA_OK) {
@@ -769,7 +758,7 @@ mm_camera_stream_t * mm_app_add_raw_stream(mm_camera_test_obj_t *test_obj,
 
     abc.buffer_info.min_buffers = num_bufs;
     abc.buffer_info.max_buffers = num_bufs;
-    abc.is_type[0] = IS_TYPE_NONE;
+    abc.is_type = IS_TYPE_NONE;
 
     rc = setmetainfoCommand(test_obj, &abc);
     if (rc != MM_CAMERA_OK) {
@@ -845,7 +834,7 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
 
     abc_snap.buffer_info.min_buffers = 7;
     abc_snap.buffer_info.max_buffers = 7;
-    abc_snap.is_type[0] = IS_TYPE_NONE;
+    abc_snap.is_type = IS_TYPE_NONE;
 
     rc = setmetainfoCommand(test_obj, &abc_snap);
     if (rc != MM_CAMERA_OK) {

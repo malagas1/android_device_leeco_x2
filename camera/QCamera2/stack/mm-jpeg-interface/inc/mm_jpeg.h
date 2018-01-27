@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,20 +30,15 @@
 #ifndef MM_JPEG_H_
 #define MM_JPEG_H_
 
-// OpenMAX dependencies
+#include <cam_semaphore.h>
+#include "mm_jpeg_interface.h"
+#include "cam_list.h"
 #include "OMX_Types.h"
 #include "OMX_Index.h"
 #include "OMX_Core.h"
 #include "OMX_Component.h"
 #include "QOMX_JpegExtensions.h"
-
-// JPEG dependencies
-#include "mm_jpeg_interface.h"
 #include "mm_jpeg_ionbuf.h"
-
-// Camera dependencies
-#include "cam_list.h"
-#include "cam_semaphore.h"
 
 #define MM_JPEG_MAX_THREADS 30
 #define MM_JPEG_CIRQ_SIZE 30
@@ -51,8 +46,6 @@
 #define MAX_EXIF_TABLE_ENTRIES 50
 #define MAX_JPEG_SIZE 20000000
 #define MAX_OMX_HANDLES (5)
-// Thumbnail src and dest aspect ratio diffrence tolerance
-#define ASPECT_TOLERANCE 0.001
 
 
 /** mm_jpeg_abort_state_t:
@@ -404,12 +397,6 @@ typedef struct mm_jpeg_obj_t {
   uint32_t reuse_reproc_buffer;
 
   cam_jpeg_metadata_t *jpeg_metadata;
-
-  /* Pointer to the session in progress*/
-  mm_jpeg_job_session_t *p_session_inprogress;
-
-  // dummy OMX handle
-  OMX_HANDLETYPE dummy_handle;
 } mm_jpeg_obj;
 
 /** mm_jpeg_pending_func_t:
