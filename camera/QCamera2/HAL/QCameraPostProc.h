@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,11 +30,13 @@
 #ifndef __QCAMERA_POSTPROC_H__
 #define __QCAMERA_POSTPROC_H__
 
-extern "C" {
-#include <mm_camera_interface.h>
-#include <mm_jpeg_interface.h>
-}
+// Camera dependencies
 #include "QCamera2HWI.h"
+
+extern "C" {
+#include "mm_camera_interface.h"
+#include "mm_jpeg_interface.h"
+}
 
 #define MAX_JPEG_BURST 2
 #define CAM_PP_CHANNEL_MAX 8
@@ -42,6 +44,7 @@ extern "C" {
 namespace qcamera {
 
 class QCameraExif;
+class QCamera2HardwareInterface;
 
 typedef struct {
     uint32_t jobId;                  // job ID
@@ -236,6 +239,7 @@ private:
     int32_t m_bufCountPPQ;
     Vector<mm_camera_buf_def_t *> m_InputMetadata; // store input metadata buffers for AOST cases
     size_t m_PPindex;                   // counter for each incoming AOST buffer
+    pthread_mutex_t m_reprocess_lock;   // lock to ensure reprocess job is not freed early.
 
 public:
     cam_dimension_t m_dst_dim;
