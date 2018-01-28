@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,16 +30,17 @@
 #ifndef __QCAMERA_STATEMACHINE_H__
 #define __QCAMERA_STATEMACHINE_H__
 
+// System dependencies
 #include <pthread.h>
 
-#include <cam_semaphore.h>
-extern "C" {
-#include <mm_camera_interface.h>
-}
-
-#include "cam_types.h"
+// Camera dependencies
 #include "QCameraQueue.h"
 #include "QCameraChannel.h"
+#include "cam_semaphore.h"
+
+extern "C" {
+#include "mm_camera_interface.h"
+}
 
 namespace qcamera {
 
@@ -147,29 +148,6 @@ typedef struct {
     cam_pp_offline_src_config_t *config;
 } qcamera_sm_evt_reg_face_payload_t;
 
-// definition of composite face detection data
-typedef struct {
-    cam_face_detection_data_t detection_data;
-
-    bool recog_valid;
-    cam_face_recog_data_t recog_data;
-
-    bool blink_valid;
-    cam_face_blink_data_t blink_data;
-
-    bool gaze_valid;
-    cam_face_gaze_data_t gaze_data;
-
-    bool smile_valid;
-    cam_face_smile_data_t smile_data;
-
-    bool landmark_valid;
-    cam_face_landmarks_data_t landmark_data;
-
-    bool contour_valid;
-    cam_face_contour_data_t contour_data;
-} cam_faces_data_t;
-
 typedef enum {
     QCAMERA_INTERNAL_EVT_FOCUS_UPDATE,       // focus updating result
     QCAMERA_INTERNAL_EVT_PREP_SNAPSHOT_DONE, // prepare snapshot done
@@ -196,7 +174,7 @@ typedef struct {
         cam_faces_data_t faces_data;
         cam_hist_stats_t stats_data;
         cam_crop_data_t crop_data;
-        cam_auto_scene_t asd_data;
+        cam_asd_decision_t asd_data;
         cam_flash_mode_t led_data;
         cam_awb_params_t awb_data;
         cam_3a_params_t ae_data;
@@ -222,8 +200,6 @@ public:
     bool isRecording();
     void releaseThread();
 
-    bool isDisplayFrameNeeded() { return m_bDisplayFrame; };
-    int32_t setDisplayFrame(bool enabled) {m_bDisplayFrame=enabled; return 0;};
     bool isPreviewCallbackNeeded() { return m_bPreviewCallbackNeeded; };
     int32_t setPreviewCallbackNeeded(bool enabled) {m_bPreviewCallbackNeeded=enabled; return 0;};
 private:
@@ -279,8 +255,6 @@ private:
     bool m_bPreviewDelayedRestart;        // Preview delayed restart
     int32_t m_DelayedMsgs;
     bool m_RestoreZSL;
-
-    bool m_bDisplayFrame;
     bool m_bPreviewCallbackNeeded;
 };
 
