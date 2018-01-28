@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -28,20 +28,23 @@
 */
 
 #define LOG_TAG "QCamera2Factory"
-//#define LOG_NDEBUG 0
 
+// System dependencies
 #include <stdlib.h>
-#include <utils/Log.h>
 #include <utils/Errors.h>
-#include <cutils/properties.h>
-#include <hardware/camera.h>
-#include <hardware/camera3.h>
 
+// Camera dependencies
+#include "camera.h"
+#include "camera3.h"
 #include "HAL/QCamera2HWI.h"
 #include "HAL3/QCamera3HWI.h"
 #include "util/QCameraFlash.h"
 #include "QCamera2Factory.h"
 #include "QCameraMuxer.h"
+
+extern "C" {
+#include "mm_camera_dbg.h"
+}
 
 using namespace android;
 
@@ -67,7 +70,6 @@ volatile uint32_t gKpiDebugLevel = 1;
  *==========================================================================*/
 QCamera2Factory::QCamera2Factory()
 {
-    camera_info info;
     mHalDescriptors = NULL;
     mCallbacks = NULL;
     mNumOfCameras = get_num_of_cameras();
@@ -108,10 +110,6 @@ QCamera2Factory::QCamera2Factory()
                     mHalDescriptors[i].device_version =
                             CAMERA_DEVICE_API_VERSION_1_0;
                 }
-                //Query camera at this point in order
-                //to avoid any delays during subsequent
-                //calls to 'getCameraInfo()'
-                getCameraInfo(i, &info);
             }
         } else {
             LOGE("Not enough resources to allocate HAL descriptor table!");
@@ -153,7 +151,6 @@ QCamera2Factory::~QCamera2Factory()
 int QCamera2Factory::get_number_of_cameras()
 {
     int numCameras = 0;
-    int rc = NO_ERROR;
 
     if (!gQCamera2Factory) {
         gQCamera2Factory = new QCamera2Factory();
@@ -300,7 +297,7 @@ int QCamera2Factory::getNumberOfCameras()
 int QCamera2Factory::getCameraInfo(int camera_id, struct camera_info *info)
 {
     int rc;
-    cam_sync_type_t cam_type = CAM_TYPE_MAIN;
+    //cam_sync_type_t cam_type = CAM_TYPE_MAIN;
 
     if (!mNumOfCameras || camera_id >= mNumOfCameras || !info ||
         (camera_id < 0)) {
@@ -315,19 +312,16 @@ int QCamera2Factory::getCameraInfo(int camera_id, struct camera_info *info)
         return NO_INIT;
     }
 
-    if ( mHalDescriptors[camera_id].device_version ==
-            CAMERA_DEVICE_API_VERSION_3_0 ) {
-        rc = QCamera3HardwareInterface::getCamInfo(
-                mHalDescriptors[camera_id].cameraId, info);
-    } else if (mHalDescriptors[camera_id].device_version ==
+    LOGI("Camera id %d API version %d",
+            camera_id, mHalDescriptors[camera_id].device_version);
+
+    // Need ANDROID_FLASH_INFO_AVAILABLE property for flashlight widget to
+    // work and so get the static data regardless of HAL version
+    rc = QCamera3HardwareInterface::getCamInfo(
+            mHalDescriptors[camera_id].cameraId, info);
+    if (mHalDescriptors[camera_id].device_version ==
             CAMERA_DEVICE_API_VERSION_1_0) {
-        rc = QCamera2HardwareInterface::getCapabilities(
-                mHalDescriptors[camera_id].cameraId, info, &cam_type);
-    } else {
-        LOGE("Device version for camera id %d invalid %d",
-              camera_id,
-              mHalDescriptors[camera_id].device_version);
-        return BAD_VALUE;
+        info->device_version = CAMERA_DEVICE_API_VERSION_1_0;
     }
 
     return rc;
@@ -455,7 +449,7 @@ int QCamera2Factory::camera_device_open(
 }
 
 struct hw_module_methods_t QCamera2Factory::mModuleMethods = {
-    open: QCamera2Factory::camera_device_open,
+    .open = QCamera2Factory::camera_device_open,
 };
 
 /*===========================================================================
